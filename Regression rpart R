@@ -24,7 +24,9 @@ basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
     temp1 <- colnames(x[,temp1, drop=FALSE])
     temp2 <-grepl("[0-9]+[,]+[0-9]", x)
     temp2 <- colnames(x[,temp2, drop=FALSE])
-    temp1 <- unique(setdiff(c(temp1,temp2),temp))
+    temp3<-data.frame(t(apply(x,2,function(x) sum(grepl('[;]',x,ignore.case = T)))))
+    temp3<-colnames(temp3[,temp3[1,]>0, drop=FALSE])
+    temp1 <- unique(setdiff(c(temp1,temp2),c(temp,temp3)))
     return(temp1)}
   print(dim(x))
   y<-x
@@ -35,7 +37,7 @@ basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
   y <- y[which(rowMeans(is.na(y)) < na_tol), ]
   x<-dataset
   w <- has_space_or_comma_no_letter(x)
-  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub(",",".",gsub(" ","", x)))))
+  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub("%","",gsub(",",".",gsub(" ","", x))))))
   w <- which(sapply( y, class ) == 'integer' )
   y[w]<-data.frame(lapply(y[w], function(x) as.numeric(x)))  
   print(dim(y))
@@ -51,8 +53,8 @@ dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0,]
 str(dataset)
 
 
-TARGET<-c('N_ML.MIX.026')
-TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','Alloy')
+TARGET<-c('N_ML.MIX.026.721')
+TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','Alloy','LgMedio','Aplic')
 
 formula_lm  <- as.formula(paste(TARGET, "~", paste(TRAIN_VECTOR, collapse="+")))
 fit <- rpart(formula = formula_lm,method = "anova", data = dataset,control = rpart.control(minsplit=50,cp = 0.01,maxdepth = 4))
@@ -73,7 +75,7 @@ png(file = "decTree.png", width = 1200,height = 800)
   text(fit, use.n = TRUE, cex = 1.2)
 dev.off()
 
-png(file = "rpartplot.png", width = 1200,height = 800)
+png(file = "rpartplot.png", width = 1000,height = 800)
   rpart.plot(fit)
 dev.off()
 
