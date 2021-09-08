@@ -1,0 +1,83 @@
+
+library(mise)
+print('teste')
+mise()
+plot('x')
+gc()
+rm(list = ls())
+options(scipen=999)#Não utilizar notação cientifica
+options(digits=5) 
+
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+
+outersect <- function(x, y) {sort(c(setdiff(x, y),setdiff(y, x)))}
+basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
+  has_space_no_letter <- function(x){
+    x <- x[complete.cases(x),]
+    if(nrow(x)>5000){
+      x<-x[sample(5000),]}
+    temp <-grepl("(.*[a-z].*)(.*[A-Z].*)", x)
+    temp <- colnames(x[,temp, drop=FALSE])
+    x<-x[-1,!(names(x) %in% temp)]
+    temp1 <-grepl("[0-9]+[[:space:]]+[0-9]", x)
+    temp1 <- colnames(x[,temp1, drop=FALSE])  
+    temp1 <- unique(temp1)
+    return(temp1)}
+  print(dim(x))
+  y<-x
+  y[y=='NULL'] <- NA
+  y[y=='-'] <- NA
+  y[y=='<NA>'] <- NA
+  y <- y[, which(colMeans(is.na(y)) < na_tol)]
+  y <- y[which(rowMeans(is.na(y)) < na_tol), ]
+  w <- has_space_no_letter(x)
+  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub(",",".",gsub(" ","", x)))))
+  w <- which(sapply( y, class ) == 'character' )
+  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub(",",".",x))))
+  w <- which(sapply( y, class ) == 'integer' )
+  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(x)))  
+  w <- which(sapply( y, class ) != 'numeric' )
+  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(x)))
+  print(dim(y))
+  print(outersect(colnames(x),colnames(y)))
+  return(y)}
+
+#------------------------------------------------------------------------------
+BD = 'D:/dados_distr.txt' #Defect ; ifelse(dataset[,TARGET]=="Accept", 0, 1)
+dataset <- read.table(file = BD, header = TRUE, sep='\t',dec = ".", stringsAsFactors = FALSE)
+dataset<-dataset[sample(nrow(dataset)),]
+dataset<-basic_cleaning_to_numbers(dataset)
+dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0,]
+str(dataset)
+
+
+TARGET<-c('N_ML.MIX.026')
+TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','Alloy')
+
+formula_lm  <- as.formula(paste(TARGET, "~", paste(TRAIN_VECTOR, collapse="+")))
+fit <- rpart(formula = formula_lm,method = "anova", data = dataset,control = rpart.control(minsplit=50,cp = 0.01,maxdepth = 4))
+y_pred = predict(fit, newdata = dataset)
+Union_table <- cbind(dataset,Y = as.vector(y_pred))
+filtro<-abs(as.vector(y_pred)-dataset[,TARGET])<=0.05
+
+#dataset<-dataset[filtro,]
+NROW(dataset)
+
+
+cor(Union_table[,c('N_ML.MIX.026','Y')])^2
+plot(Union_table[,c('Y',TARGET)])
+
+printcp(fit)
+png(file = "decTree.png", width = 1200,height = 800)
+  plot(fit, uniform = TRUE, main = "Regression using Decision Tree")
+  text(fit, use.n = TRUE, cex = 1.2)
+dev.off()
+
+png(file = "rpartplot.png", width = 1200,height = 800)
+  rpart.plot(fit)
+dev.off()
+
+rpart.plot(fit)
+
