@@ -14,16 +14,17 @@ library(rpart.plot)
 
 outersect <- function(x, y) {sort(c(setdiff(x, y),setdiff(y, x)))}
 basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
-  has_space_no_letter <- function(x){
+  has_space_or_comma_no_letter <- function(x){
     x <- x[complete.cases(x),]
     if(nrow(x)>5000){
       x<-x[sample(5000),]}
-    temp <-grepl("(.*[a-z].*)(.*[A-Z].*)", x)
-    temp <- colnames(x[,temp, drop=FALSE])
-    x<-x[-1,!(names(x) %in% temp)]
+    temp<-data.frame(t(apply(x,2,function(x) sum(grepl('[a-z]',x,ignore.case = T)))))
+    temp<-colnames(temp[,temp[1,]>0, drop=FALSE])
     temp1 <-grepl("[0-9]+[[:space:]]+[0-9]", x)
-    temp1 <- colnames(x[,temp1, drop=FALSE])  
-    temp1 <- unique(temp1)
+    temp1 <- colnames(x[,temp1, drop=FALSE])
+    temp2 <-grepl("[0-9]+[,]+[0-9]", x)
+    temp2 <- colnames(x[,temp2, drop=FALSE])
+    temp1 <- unique(setdiff(c(temp1,temp2),temp))
     return(temp1)}
   print(dim(x))
   y<-x
@@ -32,14 +33,11 @@ basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
   y[y=='<NA>'] <- NA
   y <- y[, which(colMeans(is.na(y)) < na_tol)]
   y <- y[which(rowMeans(is.na(y)) < na_tol), ]
-  w <- has_space_no_letter(x)
+  x<-dataset
+  w <- has_space_or_comma_no_letter(x)
   y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub(",",".",gsub(" ","", x)))))
-  w <- which(sapply( y, class ) == 'character' )
-  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(gsub(",",".",x))))
   w <- which(sapply( y, class ) == 'integer' )
   y[w]<-data.frame(lapply(y[w], function(x) as.numeric(x)))  
-  w <- which(sapply( y, class ) != 'numeric' )
-  y[w]<-data.frame(lapply(y[w], function(x) as.numeric(x)))
   print(dim(y))
   print(outersect(colnames(x),colnames(y)))
   return(y)}
