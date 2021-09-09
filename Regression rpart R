@@ -18,6 +18,7 @@ basic_cleaning_to_numbers <-function(x,na_tol=0.33,EXCLUDE_VECTOR=c()){
     x <- x[complete.cases(x),]
     if(nrow(x)>5000){
       x<-x[sample(5000),]}
+
     temp<-data.frame(t(apply(x,2,function(x) sum(grepl('[a-z]',x,ignore.case = T)))))
     temp<-colnames(temp[,temp[1,]>0, drop=FALSE])
     temp1 <-grepl("[0-9]+[[:space:]]+[0-9]", x)
@@ -49,7 +50,7 @@ BD = 'D:/dados_distr.txt' #Defect ; ifelse(dataset[,TARGET]=="Accept", 0, 1)
 dataset <- read.table(file = BD, header = TRUE, sep='\t',dec = ".", stringsAsFactors = FALSE)
 dataset<-dataset[sample(nrow(dataset)),]
 dataset<-basic_cleaning_to_numbers(dataset)
-dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0,]
+dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0,]# & dataset$Aplic=='ATP',]
 str(dataset)
 
 
@@ -57,7 +58,7 @@ TARGET<-c('N_ML.MIX.026.721')
 TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','Alloy','LgMedio','Aplic')
 
 formula_lm  <- as.formula(paste(TARGET, "~", paste(TRAIN_VECTOR, collapse="+")))
-fit <- rpart(formula = formula_lm,method = "anova", data = dataset,control = rpart.control(minsplit=50,cp = 0.01,maxdepth = 4))
+fit <- rpart(formula = formula_lm,method = "anova", data = dataset,control = rpart.control(minsplit=50,cp = 0.01,maxdepth =4))
 y_pred = predict(fit, newdata = dataset)
 Union_table <- cbind(dataset,Y = as.vector(y_pred))
 filtro<-abs(as.vector(y_pred)-dataset[,TARGET])<=0.05
@@ -66,7 +67,7 @@ filtro<-abs(as.vector(y_pred)-dataset[,TARGET])<=0.05
 NROW(dataset)
 
 
-cor(Union_table[,c('N_ML.MIX.026','Y')])^2
+cor(Union_table[,c(TARGET,'Y')])^2
 plot(Union_table[,c('Y',TARGET)])
 
 printcp(fit)
@@ -80,4 +81,31 @@ png(file = "rpartplot.png", width = 1000,height = 800)
 dev.off()
 
 rpart.plot(fit)
+
+write.table(Union_table, file='Teste.txt',row.names=FALSE,sep=";")
+
+percentual<-0.07
+agrupador<-c('ModaGrade') #ModaGrade Moda.FamSup. ModaCustomer ModaPad
+Union_table$IDY<-ifelse(Union_table$Y>percentual,1,0)
+formula_aggregate<- as.formula(paste("IDY ~ ",agrupador))
+detalhe_cluster<- aggregate(formula_aggregate, data=Union_table,FUN= {function(x) c(avg=mean(x), sd=sd(x), count=length(x),min=min(x),max=max(x),sum=sum(x))})
+detalhe_cluster<-data.frame(Cliente=detalhe_cluster[,1],
+                            avg=as.numeric(format(round(detalhe_cluster[,'IDY'][,1],2))),
+                            n=as.numeric(format(round(detalhe_cluster[,'IDY'][,3],2))),
+                            sum=as.numeric(format(round(detalhe_cluster[,'IDY'][,6],1))),stringsAsFactors = FALSE)
+
+myDf <- data.frame(count=detalhe_cluster$sum,avg=detalhe_cluster$avg,n=detalhe_cluster$n,Grupo=detalhe_cluster$Cliente, stringsAsFactors = FALSE)
+myDf <- myDf[order(myDf$count, decreasing=TRUE), ]
+myDf$Grupo <- factor(myDf$Grupo, levels=myDf$Grupo)
+myDf$cumulative <- cumsum(myDf$count)
+myDf <-myDf[1:15,]
+
+library(ggplot2)
+ggplot(myDf, aes(x=Grupo)) +
+  geom_bar(aes(y=count), fill='blue', stat="identity") +
+  #geom_point(aes(y=cumulative), color = rgb(0, 1, 0), pch=16, size=1) +
+  #geom_path(aes(y=cumulative, group=1), colour="slateblue1", lty=3, size=0.9) +
+  geom_text(aes(x = Grupo, y = count), label = myDf$count, vjust = -1)+
+  theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
+  labs(title = paste0("Pareto Plot - Resultado do modelo com perda superior a ",percentual*100,"% por ",agrupador), subtitle = "", x = 'Grupo')#, y = 'Count')
 
