@@ -79,13 +79,13 @@ dev.off()
 png(file = "rpartplot.png", width = 1000,height = 800)
   rpart.plot(fit)
 dev.off()
-
 rpart.plot(fit)
 
-write.table(Union_table, file='Teste.txt',row.names=FALSE,sep=";")
 
 percentual<-0.07
 agrupador<-c('ModaGrade') #ModaGrade Moda.FamSup. ModaCustomer ModaPad
+metrica<-c('count') #count avg n
+
 Union_table$IDY<-ifelse(Union_table$Y>percentual,1,0)
 formula_aggregate<- as.formula(paste("IDY ~ ",agrupador))
 detalhe_cluster<- aggregate(formula_aggregate, data=Union_table,FUN= {function(x) c(avg=mean(x), sd=sd(x), count=length(x),min=min(x),max=max(x),sum=sum(x))})
@@ -96,16 +96,27 @@ detalhe_cluster<-data.frame(Cliente=detalhe_cluster[,1],
 
 myDf <- data.frame(count=detalhe_cluster$sum,avg=detalhe_cluster$avg,n=detalhe_cluster$n,Grupo=detalhe_cluster$Cliente, stringsAsFactors = FALSE)
 myDf <- myDf[order(myDf$count, decreasing=TRUE), ]
+principais<-myDf[1:15,'Grupo']
 myDf$Grupo <- factor(myDf$Grupo, levels=myDf$Grupo)
 myDf$cumulative <- cumsum(myDf$count)
-myDf <-myDf[1:15,]
+myDf$cumulative <- round(100 * myDf$cumulative/tail(myDf$cumulative, n=1),1)
+scaleRight <- tail(myDf$cumulative, n=1)/head(myDf$count, n=1)
+
+myDf$plot<-myDf[,metrica]
+myDf<-myDf[1:15,]
 
 library(ggplot2)
 ggplot(myDf, aes(x=Grupo)) +
-  geom_bar(aes(y=count), fill='blue', stat="identity") +
-  #geom_point(aes(y=cumulative), color = rgb(0, 1, 0), pch=16, size=1) +
-  #geom_path(aes(y=cumulative, group=1), colour="slateblue1", lty=3, size=0.9) +
-  geom_text(aes(x = Grupo, y = count), label = myDf$count, vjust = -1)+
+  geom_bar(aes(y=plot), fill='deepskyblue4', stat="identity") +
+  geom_text(aes(x = Grupo, y = plot), label = myDf$plot, vjust = -1)+
   theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
-  labs(title = paste0("Pareto Plot - Resultado do modelo com perda superior a ",percentual*100,"% por ",agrupador), subtitle = "", x = 'Grupo')#, y = 'Count')
+  labs(title = paste0("Pareto Plot - Resultado do modelo com perda superior a ",percentual*100,"% por ",agrupador), subtitle = "", x = 'Grupo')+ #, y = 'Count')
 
+  scale_y_continuous(sec.axis = sec_axis(~.*scaleRight, name = "Cumulative (%)"))+
+  geom_path(aes(y=cumulative/scaleRight, group=1),colour="red", size=0.9) +
+  geom_point(aes(y=cumulative/scaleRight, group=1),colour="red") +
+  geom_text(aes(x = Grupo, y = cumulative/scaleRight), label = myDf$cumulative, vjust = -1)
+  
+
+tempUnion_table<-Union_table[Union_table[,'ModaGrade'] %in% principais,c('ModaGrade','PePlacao','DesclPartida','SumDeltaMLVeio','ProbBS','QtdeInterfaceMIX','Y')]
+write.table(tempUnion_table, file='Teste.txt',row.names=FALSE,sep=";",dec=",")
