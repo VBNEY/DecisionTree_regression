@@ -50,7 +50,7 @@ BD = 'D:/dados_distr.txt' #Defect ; ifelse(dataset[,TARGET]=="Accept", 0, 1)
 dataset <- read.table(file = BD, header = TRUE, sep='\t',dec = ".", stringsAsFactors = FALSE)
 dataset<-dataset[sample(nrow(dataset)),]
 dataset<-basic_cleaning_to_numbers(dataset)
-dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0,]# & dataset$Aplic=='ATP',]
+dataset<-dataset[dataset$PePlacao>=200 & dataset$Desconsiderar==0 & dataset$Aplic=='ATP',]
 str(dataset)
 
 
@@ -81,10 +81,11 @@ png(file = "rpartplot.png", width = 1000,height = 800)
 dev.off()
 rpart.plot(fit)
 
+#realização do pareto.....................................
 
 percentual<-0.07
 agrupador<-c('ModaGrade') #ModaGrade Moda.FamSup. ModaCustomer ModaPad
-metrica<-c('count') #count avg n
+metrica<-c('avg') #count avg n
 
 Union_table$IDY<-ifelse(Union_table$Y>percentual,1,0)
 formula_aggregate<- as.formula(paste("IDY ~ ",agrupador))
@@ -110,13 +111,15 @@ ggplot(myDf, aes(x=Grupo)) +
   geom_bar(aes(y=plot), fill='deepskyblue4', stat="identity") +
   geom_text(aes(x = Grupo, y = plot), label = myDf$plot, vjust = -1)+
   theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
-  labs(title = paste0("Pareto Plot - Resultado do modelo com perda superior a ",percentual*100,"% por ",agrupador), subtitle = "", x = 'Grupo')+ #, y = 'Count')
+  labs(title = paste0("Pareto Plot - Resultado do modelo com perda superior a ",percentual*100,"% por ",agrupador), subtitle = "", x = 'Grupo')  +
 
   scale_y_continuous(sec.axis = sec_axis(~.*scaleRight, name = "Cumulative (%)"))+
   geom_path(aes(y=cumulative/scaleRight, group=1),colour="red", size=0.9) +
   geom_point(aes(y=cumulative/scaleRight, group=1),colour="red") +
   geom_text(aes(x = Grupo, y = cumulative/scaleRight), label = myDf$cumulative, vjust = -1)
-  
 
-tempUnion_table<-Union_table[Union_table[,'ModaGrade'] %in% principais,c('ModaGrade','PePlacao','DesclPartida','SumDeltaMLVeio','ProbBS','QtdeInterfaceMIX','Y')]
-write.table(tempUnion_table, file='Teste.txt',row.names=FALSE,sep=";",dec=",")
+
+tempUnion_table<-Union_table[Union_table[,'ModaGrade'] %in% principais,c('ModaGrade','PePlacao','DesclPartida','QtdeLgDistinct','SumDeltaMLVeio','ProbBS','QtdeInterfaceMIX','Y')]
+detalhe_cluster<- aggregate(formula = .~ ModaGrade, data=tempUnion_table,FUN= {function(x) c(avg=mean(x))})
+detalhe_cluster<-detalhe_cluster[order(detalhe_cluster$Y, decreasing=TRUE),]
+write.table(detalhe_cluster, file='Teste.txt',row.names=FALSE,sep=";",dec=",")
