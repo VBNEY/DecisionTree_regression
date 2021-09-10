@@ -55,7 +55,7 @@ str(dataset)
 
 
 TARGET<-c('N_ML.MIX.026.721')
-TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','Alloy','LgMedio','Aplic')
+TRAIN_VECTOR<-c('PePlacao','SumDeltaMLVeio','QtdeLgDistinct','QtdeInterfaceMIX','RestrCortL','QtdeCustomerDistinct','DesclPartida','QtdeLggroup','LgMedio','Aplic')
 
 formula_lm  <- as.formula(paste(TARGET, "~", paste(TRAIN_VECTOR, collapse="+")))
 fit <- rpart(formula = formula_lm,method = "anova", data = dataset,control = rpart.control(minsplit=50,cp = 0.01,maxdepth =4))
@@ -85,7 +85,7 @@ rpart.plot(fit)
 
 percentual<-0.07
 agrupador<-c('ModaGrade') #ModaGrade Moda.FamSup. ModaCustomer ModaPad
-metrica<-c('avg') #count avg n
+metrica<-c('count') #count avg n
 
 Union_table$IDY<-ifelse(Union_table$Y>percentual,1,0)
 formula_aggregate<- as.formula(paste("IDY ~ ",agrupador))
@@ -119,7 +119,10 @@ ggplot(myDf, aes(x=Grupo)) +
   geom_text(aes(x = Grupo, y = cumulative/scaleRight), label = myDf$cumulative, vjust = -1)
 
 
-tempUnion_table<-Union_table[Union_table[,'ModaGrade'] %in% principais,c('ModaGrade','PePlacao','DesclPartida','QtdeLgDistinct','SumDeltaMLVeio','ProbBS','QtdeInterfaceMIX','Y')]
+tempUnion_table<-Union_table[Union_table[,'ModaGrade'] %in% principais,c('ModaGrade','PePlacao','DesclPartida','QtdeLgDistinct','SumDeltaMLVeio','ProbBS','QtdeInterfaceMIX','Y',TARGET)]
+tempUnion_table$aleatorio<-runif(nrow(tempUnion_table))
 detalhe_cluster<- aggregate(formula = .~ ModaGrade, data=tempUnion_table,FUN= {function(x) c(avg=mean(x))})
 detalhe_cluster<-detalhe_cluster[order(detalhe_cluster$Y, decreasing=TRUE),]
+
+
 write.table(detalhe_cluster, file='Teste.txt',row.names=FALSE,sep=";",dec=",")
